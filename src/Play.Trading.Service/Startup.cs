@@ -1,22 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Reflection;
+using System.Text.Json.Serialization;
 using MassTransit;
-using MassTransit.MongoDbIntegration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Play.Common.Identity;
 using Play.Common.MassTransit;
 using Play.Common.MongoDB;
 using Play.Common.Settings;
+using Play.Trading.Service.Entities;
 using Play.Trading.Service.StateMachines;
 
 namespace Play.Trading.Service
@@ -35,11 +30,20 @@ namespace Play.Trading.Service
         {
 
             services.AddMongo()
+                .AddMongoRepository<CatalogItem>("catalogitems")
                 .AddJwtBearerAuthentication();
 
             AddMassTransit(services);
 
-            services.AddControllers();
+            services.AddControllers(options =>
+            {
+                options.SuppressAsyncSuffixInActionNames = false;
+            })
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Play.Trading.Service", Version = "v1" });
@@ -75,6 +79,7 @@ namespace Play.Trading.Service
             services.AddMassTransit(configure =>
             {
                 configure.UsingPlayEconomyRabbitMq();
+                configure.AddConsumers(Assembly.GetEntryAssembly());
                 configure.AddSagaStateMachine<PurchaseStateMachine, PurchaseState>()
                 .MongoDbRepository(r =>
                 {
@@ -87,6 +92,7 @@ namespace Play.Trading.Service
             });
 
             services.AddMassTransitHostedService();
+            services.AddGenericRequestClient();
         }
     }
 }

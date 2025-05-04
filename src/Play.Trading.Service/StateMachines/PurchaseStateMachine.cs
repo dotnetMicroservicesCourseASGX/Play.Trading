@@ -12,6 +12,7 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
         InstanceState(state => state.CurrentState);
         ConfigureEvents();
         ConfigureInitialState();
+        ConfigureAny();
     }
 
     public State Accepted { get; }
@@ -19,10 +20,20 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
     public State Completed { get; }
     public State Faulted { get; }
     public Event<PurchaseRequested> PurchaseRequested { get; }
+    public Event<GetPurchaseState> GetPurchaseState { get; }
 
     private void ConfigureEvents()
     {
         Event(() => PurchaseRequested);
+        Event(() => GetPurchaseState);
+    }
+
+    private void ConfigureAny()
+    {
+        DuringAny(
+            When(GetPurchaseState)
+            .Respond(x => x.Instance)
+        );
     }
 
     private void ConfigureInitialState()
