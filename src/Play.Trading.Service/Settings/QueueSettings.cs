@@ -1,5 +1,3 @@
-using System;
-
 namespace Play.Trading.Service.Settings;
 
 public class QueueSettings
