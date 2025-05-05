@@ -1,5 +1,6 @@
 using System;
 using Automatonymous;
+using MassTransit;
 using Play.Identity.Contracts;
 using Play.Inventory.Contracts;
 using Play.Trading.Service.Activities;
@@ -16,8 +17,9 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
         ConfigureEvents();
         ConfigureInitialState();
         ConfigureAny();
-        COnfigureAccepted();
+        ConfigureAccepted();
         ConfigureItemsGranted();
+        ConfigureFaulted();
     }
 
     public State Accepted { get; }
@@ -28,6 +30,8 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
     public Event<GetPurchaseState> GetPurchaseState { get; }
     public Event<InventoryItemsGranted> InventoryItemsGranted { get; }
     public Event<GilDebited> GilDebited { get; }
+    public Event<Fault<GrantItems>> GrantItemsFaulted { get; }
+    public Event<Fault<DebitGil>> DebitGilFaulted { get; }
 
     private void ConfigureEvents()
     {
@@ -35,9 +39,14 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
         Event(() => GetPurchaseState);
         Event(() => InventoryItemsGranted);
         Event(() => GilDebited);
+        Event(() => GrantItemsFaulted, x => x.CorrelateById(context =>
+                    context.Message.Message.CorrelationId));
+
+        Event(() => DebitGilFaulted, x => x.CorrelateById(context =>
+                    context.Message.Message.CorrelationId));
     }
 
-    private void COnfigureAccepted()
+    private void ConfigureAccepted()
     {
         During(Accepted,
             When(InventoryItemsGranted)
@@ -50,7 +59,14 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
                     context.Instance.PurchaseTotal.Value,
                     context.Instance.CorrelationId
                     ))
-                .TransitionTo(ItemsGranted)
+                .TransitionTo(ItemsGranted),
+            When(GrantItemsFaulted)
+            .Then(context =>
+            {
+                context.Instance.ErrorMessage = context.Data.Exceptions[0].Message;
+                context.Instance.LastUpdated = DateTimeOffset.UtcNow;
+            })
+            .TransitionTo(Faulted)
         );
     }
 
@@ -62,7 +78,20 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
                 {
                     context.Instance.LastUpdated = DateTimeOffset.UtcNow;
                 })
-                .TransitionTo(Completed)
+                .TransitionTo(Completed),
+            When(DebitGilFaulted)
+                .Send(context => new SubtractItems(
+                    context.Instance.UserId,
+                    context.Instance.ItemId,
+                    context.Instance.Quantity,
+                    context.Instance.CorrelationId
+                ))
+                .Then(context =>
+                {
+                    context.Instance.ErrorMessage = context.Data.Exceptions[0].Message;
+                    context.Instance.LastUpdated = DateTimeOffset.UtcNow;
+                })
+                .TransitionTo(Faulted)
         );
     }
 
@@ -100,5 +129,14 @@ public class PurchaseStateMachine : MassTransitStateMachine<PurchaseState>
                 })
                 .TransitionTo(Faulted))
             );
+    }
+
+    private void ConfigureFaulted()
+    {
+        During(Faulted,
+            Ignore(PurchaseRequested),
+            Ignore(InventoryItemsGranted),
+            Ignore(GilDebited)
+        );
     }
 }
