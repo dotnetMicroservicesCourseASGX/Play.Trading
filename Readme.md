@@ -3,7 +3,7 @@ Trading libraries used by Play Economy services
 
 ## Build the docker image
 ```powershell
-$version="1.0.2"
+$version="1.0.3"
 $env:GH_OWNER="dotnetMicroservicesCourseASGX"
 $env:GH_PAT="[PAT HERE]"
 $appname="playeconomyaxsg"
