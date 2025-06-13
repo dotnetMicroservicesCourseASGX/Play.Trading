@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trading-serviceaccount
+  annotations:
+    azure.workload.identity/client-id: 3624e6b8-ccf6-4977-a463-9ecbcbccdbf0
+  labels:
+    azure.workload.identity/use: "true"
