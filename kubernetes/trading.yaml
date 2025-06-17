@@ -3,6 +3,6 @@ kind: ServiceAccount
 metadata:
   name: trading-serviceaccount
   annotations:
-    azure.workload.identity/client-id: 3624e6b8-ccf6-4977-a463-9ecbcbccdbf0
+    azure.workload.identity/client-id: eded7089-563e-478d-bb95-bc7324cac906
   labels:
     azure.workload.identity/use: "true"
